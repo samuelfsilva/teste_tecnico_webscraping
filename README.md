@@ -32,34 +32,27 @@ Na pasta raiz do projeto (`/teste_tecnico_webscraping`), primeiro compile a solu
 dotnet build
 ```
 
-Instalação dos navegadores do Playwright (opções por plataforma)
-
-- Opção A — Recomendada (instala o CLI do Playwright globalmente, funciona em Linux/macOS/Windows):
-
-```bash
-# Instalar o CLI global (requer dotnet tool) — exemplo usando dotnet tool
-dotnet tool install --global Microsoft.Playwright.CLI
-playwright install
-```
-
-- Opção B — Usar o script gerado pela build (PowerShell) — útil quando não deseja instalar ferramentas globais:
-
-```powershell
-# No Windows PowerShell (executar a partir da raiz do repositório):
-.
-\src\LegalScraper.API\bin\Debug\net10.0\playwright.ps1 install
-
-# No Linux/macOS com PowerShell Core (pwsh) disponível:
-pwsh -c "./src/LegalScraper.API/bin/Debug/net10.0/playwright.ps1 install"
-```
-
-Observação: dependendo do SDK/versão alvo, a pasta pode ser `net8.0`, `net7.0` ou `net10.0`. Substitua `net10.0` pelo diretório existente em `src/LegalScraper.API/bin/Debug/`.
-
-- Opção C — Se você tem Node.js instalado, use o Playwright via `npx` (alternativa):
+- Opção A — Recomendada para Linux/macOS (via Node.js/npx):
+  
+  Esta é a forma mais robusta em ambientes Linux, pois não depende do PowerShell.
 
 ```bash
 npx playwright install --with-deps
 ```
+
+- Opção B — Via .NET CLI (se preferir manter tudo no ecossistema .NET):
+
+Primeiro, restaure as ferramentas e compile o projeto para garantir que os assets do Playwright sejam gerados:
+
+```bash
+dotnet build
+# O comando abaixo usa o projeto que contém o Playwright como referência
+dotnet playwright install -p src/LegalScraper.Infrastructure/LegalScraper.Infrastructure.csproj
+```
+
+_Nota: Se o comando `playwright` não for encontrado, instale-o globalmente: `dotnet tool install --global Microsoft.Playwright.CLI` (embora `npx` seja preferível)._
+
+- Opção C — Usar o script gerado pela build (apenas se tiver `pwsh` instalado):
 
 Por que o comando `bash src/LegalScraper.API/bin/Debug/net*/playwright.sh install` que aparece em alguns tutoriais pode falhar?
 
