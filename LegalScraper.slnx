@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LegalScraper.API/LegalScraper.API.csproj" />
+    <Project Path="src/LegalScraper.Application/LegalScraper.Application.csproj" />
+    <Project Path="src/LegalScraper.Domain/LegalScraper.Domain.csproj" />
+    <Project Path="src/LegalScraper.Infrastructure/LegalScraper.Infrastructure.csproj" />
+  </Folder>
+</Solution>

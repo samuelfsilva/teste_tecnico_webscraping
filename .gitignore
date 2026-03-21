@@ -1,0 +1,55 @@
+# Build
+/bin/
+/obj/
+**/bin/
+**/obj/
+/publish/
+
+# Visual Studio and IDEs
+/.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.DotSettings.user
+*.VC.db
+
+# Logs and test results
+*.log
+logs/
+TestResults/
+*.trx
+
+# Environment and secrets
+appsettings.*.Development.json
+appsettings.*.Local.json
+secrets.json
+.env
+.env.local
+*.pfx
+*.key
+*.pem
+
+# NuGet
+*.nupkg
+packages/
+.nuget/
+
+# Coverage and analysis
+coverage/
+*.coverage
+*.coveragexml
+
+# Frontend / node
+node_modules/
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Ignore per-project build folders
+src/**/bin/
+src/**/obj/
