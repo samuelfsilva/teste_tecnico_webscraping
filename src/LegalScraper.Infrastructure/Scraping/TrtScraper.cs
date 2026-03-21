@@ -49,7 +49,25 @@ public class TrtScraper
             await page.FillAsync("#nrProcessoInput", numeroProcesso);
             await page.ClickAsync("#btnPesquisar");
 
-            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            // TRT5 specific: After searching, it shows a list of results (1st Degree, 2nd Degree, etc)
+            // We need to click on the first relevant result if we aren't already on the details page.
+            try 
+            {
+                // Wait for the results table or the details panel
+                await page.WaitForSelectorAsync(".painel-conteudo, .tabela-processos, .nome-parte", new PageWaitForSelectorOptions { Timeout = 10000 });
+                
+                // If we see a list of processes, click the first one (usually 1st Degree)
+                var firstProcessLink = page.Locator("a.link-processo").First;
+                if (await firstProcessLink.IsVisibleAsync())
+                {
+                    _logger.LogInformation("Clicando no primeiro resultado da lista para o processo {Numero}", numeroProcesso);
+                    await firstProcessLink.ClickAsync();
+                }
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("Não foi possível detectar a lista de resultados ou os detalhes do processo {Numero} após a busca inicial.", numeroProcesso);
+            }
 
             // Wait for results
             try
@@ -60,15 +78,18 @@ public class TrtScraper
             }
             catch (TimeoutException)
             {
-                // Often PJe has a modal reCaptcha if detecting scraping
-                var captchaVisible = await page.Locator("app-hcaptcha").IsVisibleAsync() || await page.Locator(".g-recaptcha").IsVisibleAsync();
+                // Often PJe has a modal reCaptcha or a custom alphanumeric captcha
+                var captchaVisible = await page.Locator("app-hcaptcha").IsVisibleAsync() || 
+                                     await page.Locator(".g-recaptcha").IsVisibleAsync() ||
+                                     await page.Locator("#imagemCaptcha").IsVisibleAsync();
                 
                 if (captchaVisible)
                 {
-                    _logger.LogWarning("CAPTCHA detectado no TRT{TrtNum} para processo {Numero}. Por favor, resolva-o no navegador aberto.", trtNum, numeroProcesso);
+                    _logger.LogWarning("CAPTCHA detectado no TRT{TrtNum} para processo {Numero}. Por favor, resolva-o no navegador aberto (você tem 3 minutos).", trtNum, numeroProcesso);
                     try
                     {
-                        await page.WaitForSelectorAsync(".painel-conteudo", new PageWaitForSelectorOptions { Timeout = 45000 });
+                        // Increased timeout to 180 seconds as requested by the user
+                        await page.WaitForSelectorAsync(".painel-conteudo", new PageWaitForSelectorOptions { Timeout = 180000 });
                     }
                     catch
                     {
@@ -86,7 +107,38 @@ public class TrtScraper
             var processo = new Processo { Numero = numeroProcesso };
 
             // Wait specifically for process details to load
-            await page.WaitForSelectorAsync("mat-card-title", new PageWaitForSelectorOptions { Timeout = 10000 });
+            try
+            {
+                // Increased timeout to 60 seconds (1 minute) as requested for the second stage
+                await page.WaitForSelectorAsync("mat-card-title", new PageWaitForSelectorOptions { Timeout = 60000 });
+            }
+            catch (TimeoutException)
+            {
+                // Check if a second captcha appeared after the initial load
+                var secondCaptchaVisible = await page.Locator("app-hcaptcha").IsVisibleAsync() || 
+                                          await page.Locator(".g-recaptcha").IsVisibleAsync() ||
+                                          await page.Locator("#imagemCaptcha").IsVisibleAsync();
+
+                if (secondCaptchaVisible)
+                {
+                    _logger.LogWarning("Segundo CAPTCHA detectado no TRT{TrtNum} para processo {Numero}. Por favor, resolva-o (você tem 1 minuto).", trtNum, numeroProcesso);
+                    try
+                    {
+                        await page.WaitForSelectorAsync("mat-card-title", new PageWaitForSelectorOptions { Timeout = 60000 });
+                    }
+                    catch
+                    {
+                        _logger.LogError("Timeout aguardando resolução do segundo CAPTCHA.");
+                        return null;
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Timeout aguardando carregamento dos detalhes do processo {Numero}.", numeroProcesso);
+                    return null;
+                }
+            }
+
 
             // Extract Class and Assunto
             // Elements are often wrapped in <div class="valor"> inside generic rows

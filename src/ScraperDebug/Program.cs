@@ -1,38 +1,50 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
+using Microsoft.Extensions.Logging;
+using LegalScraper.Infrastructure.Scraping;
 
 class Program
 {
     static async Task Main(string[] args)
     {
-        Console.WriteLine("Iniciando teste de Playwright...");
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.AddConsole();
+        });
+        var logger = loggerFactory.CreateLogger<TrtScraper>();
+        var scraper = new TrtScraper(logger);
+
+        // Process number for TRT5 (provided by browser exploration)
+        string processNumber = "0000516-48.2023.5.05.0002";
+        
+        Console.WriteLine($"Iniciando scraping do processo {processNumber}...");
+        
         try
         {
-            using var playwright = await Playwright.CreateAsync();
-            Console.WriteLine("Playwright criado. Tentando lançar o Chromium...");
+            var processo = await scraper.ScrapeAsync(processNumber, CancellationToken.None);
             
-            var options = new BrowserTypeLaunchOptions 
-            { 
-                Headless = true,
-                ExecutablePath = "/home/samuel/.cache/ms-playwright/chromium-1155/chrome-linux/chrome"
-            };
-            
-            await using var browser = await playwright.Chromium.LaunchAsync(options);
-            Console.WriteLine("Browser lançado com sucesso!");
-            
-            var page = await browser.NewPageAsync();
-            await page.GotoAsync("https://www.google.com");
-            Console.WriteLine("Navegou para o Google!");
-            
-            Console.WriteLine("Título: " + await page.TitleAsync());
-            await browser.CloseAsync();
-            Console.WriteLine("Teste concluído com sucesso!");
+            if (processo != null)
+            {
+                Console.WriteLine("Scraping concluído com sucesso!");
+                Console.WriteLine($"Número: {processo.Numero}");
+                Console.WriteLine($"Classe: {processo.Classe}");
+                Console.WriteLine($"Foro: {processo.Foro}");
+                Console.WriteLine($"Data Distribuição: {processo.DataDistribuicao}");
+                Console.WriteLine($"Partes: {processo.Partes.Count}");
+                Console.WriteLine($"Andamentos: {processo.Andamentos.Count}");
+            }
+            else
+            {
+                Console.WriteLine("Falha no scraping ou timeout no CAPTCHA.");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("ERRO FATAL: " + ex.Message);
+            Console.WriteLine($"ERRO: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
         }
     }
 }
+
