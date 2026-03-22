@@ -25,40 +25,25 @@ Esta é a solução para o desafio técnico de extração de dados jurídicos (T
 
 ### Instalação e Execução
 
-Na pasta raiz do projeto (`/teste_tecnico_webscraping`), primeiro compile a solução para que os assets do Playwright sejam restaurados para `bin/Debug/net*`:
-
-```bash
-# Compilar a solução (gera os binários em src/LegalScraper.API/bin/Debug/net*/)
-dotnet build
-```
-
-- Opção A — Recomendada para Linux/macOS (via Node.js/npx):
-  
-  Esta é a forma mais robusta em ambientes Linux, pois não depende do PowerShell.
-
-```bash
-npx playwright install --with-deps
-```
-
-- Opção B — Via .NET CLI (se preferir manter tudo no ecossistema .NET):
-
-Primeiro, restaure as ferramentas e compile o projeto para garantir que os assets do Playwright sejam gerados:
+#### 1. Compilar o projeto
 
 ```bash
 dotnet build
-# O comando abaixo usa o projeto que contém o Playwright como referência
-dotnet playwright install -p src/LegalScraper.Infrastructure/LegalScraper.Infrastructure.csproj
 ```
 
-_Nota: Se o comando `playwright` não for encontrado, instale-o globalmente: `dotnet tool install --global Microsoft.Playwright.CLI` (embora `npx` seja preferível)._
+O `dotnet build` restaura os pacotes e copia os assets do Playwright para `bin/Debug/net*/`.
 
-- Opção C — Usar o script gerado pela build (apenas se tiver `pwsh` instalado):
+#### 2. Instalar os navegadores
 
-Por que o comando `bash src/LegalScraper.API/bin/Debug/net*/playwright.sh install` que aparece em alguns tutoriais pode falhar?
+Após compilar, instale o navegador Chromium e suas dependências de sistema:
 
-- O pacote NuGet do `Microsoft.Playwright` normalmente gera um wrapper PowerShell (`playwright.ps1`) e coloca o diretório `.playwright` em `bin/Debug/net*` durante a restauração/build. Nem sempre há um `playwright.sh` no `bin` — por isso o comando `bash .../playwright.sh` pode resultar em "Arquivo ou diretório inexistente". As instruções acima cobrem o uso correto em Windows e em Linux/macOS (via `pwsh`).
+```bash
+npx playwright install --with-deps chromium
+```
 
-Para rodar a API (após instalar navegadores conforme uma das opções acima):
+> **Por que `npx`?** Em ambientes Linux, o wrapper gerado pelo NuGet (`playwright.ps1`) requer PowerShell. Usar `npx` é a abordagem mais robusta e independente de plataforma.
+
+#### 3. Rodar a API
 
 ```bash
 cd src/LegalScraper.API
@@ -66,9 +51,6 @@ dotnet run
 ```
 
 Após o `dotnet run`, a API estará disponível nas portas padrão (ex.: `http://localhost:5000` ou `https://localhost:5001`). A interface do Swagger fica em `/swagger/index.html`.
-
-A API subirá na porta padrão (ex: `http://localhost:5000` ou `https://localhost:5001`).
-Você pode acessar a interface do **Swagger** em `/swagger/index.html`.
 
 ## Como Usar a API
 
@@ -93,4 +75,23 @@ Retorna um JSON listando todos os processos coletados e persistidos no banco de 
 ### 3. Consultar Processo Específico
 
 **GET** `/processos/{numeroProcesso}`
-Retorna um JSON detalhado contendo a Capa, Partes e Andamentos do processo específico.
+Retorna um JSON detalhado contendo a Capa, Partes e Andamentos do processo específico. O retorno também inclui os campos:
+- `pdfDisponivel` (`bool`): indica se o PDF foi baixado e está armazenado.
+- `pdfNome` (`string`): nome sugerido do arquivo PDF.
+
+### 4. Baixar PDF do Processo
+
+Essa ação foi necessária para os casos em que o processo está salvo em pdf, como no site https://pje.trt2.jus.br/consultaprocessual/
+Nota: Implementar funcionalidade de processamento do PDF via agente de IA para extração de dados.
+
+**GET** `/processos/{numeroProcesso}/pdf`
+
+Retorna o PDF armazenado do processo como download direto (`Content-Type: application/pdf`). O número do processo deve ser URL-encoded se contiver caracteres especiais.
+
+Exemplo:
+```
+GET /processos/0001234-56.2023.5.02.0001/pdf
+```
+
+Resposta de sucesso: arquivo PDF com o nome original do download.
+Resposta de erro (`404`): `{ "message": "PDF não disponível para o processo ..." }` — indica que o processo existe mas o PDF ainda não foi coletado ou o botão de download não estava disponível durante o scraping.

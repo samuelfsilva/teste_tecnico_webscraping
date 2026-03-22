@@ -22,6 +22,8 @@ public class ProcessoDto
     public string? Assunto { get; set; }
     public string? Foro { get; set; }
     public DateTime? DataDistribuicao { get; set; }
+    public bool PdfDisponivel { get; set; }
+    public string? PdfNome { get; set; }
     
     public List<ParteDto> Partes { get; set; } = new();
     public List<AndamentoDto> Andamentos { get; set; } = new();

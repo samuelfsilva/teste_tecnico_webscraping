@@ -46,6 +46,8 @@ public class ProcessoRepository : IProcessoRepository
             existingProcesso.Assunto = processo.Assunto;
             existingProcesso.Foro = processo.Foro;
             existingProcesso.DataDistribuicao = processo.DataDistribuicao;
+            existingProcesso.PdfConteudo = processo.PdfConteudo;
+            existingProcesso.PdfNome = processo.PdfNome;
             
             foreach (var parte in processo.Partes)
             {

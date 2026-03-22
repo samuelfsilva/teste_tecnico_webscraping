@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using LegalScraper.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
+using Soenneker.Playwrights.Extensions.Stealth;
 
 namespace LegalScraper.Infrastructure.Scraping;
 
@@ -24,9 +25,9 @@ public class TjspScraper
         
         using var playwright = await Playwright.CreateAsync();
         
-        // Running non-headless to allow manual captcha solving if needed
-        await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = false });
-        var context = await browser.NewContextAsync();
+        // Stealth mode: remove navigator.webdriver and randomize browser fingerprints
+        await using var browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions { Headless = false });
+        var context = await browser.CreateStealthContext();
         var page = await context.NewPageAsync();
 
         try

@@ -45,4 +45,16 @@ public class ProcessosController : ControllerBase
         
         return StatusCode(207, new { Message = "Scraping finalizado, mas alguns processos falharam ou precisaram de intervenção." });
     }
+
+    [HttpGet("{numeroProcesso}/pdf")]
+    public async Task<ActionResult> GetPdf(string numeroProcesso)
+    {
+        var (conteudo, nome) = await _mediator.Send(new GetProcessoPdfQuery(numeroProcesso));
+        
+        if (conteudo == null || conteudo.Length == 0)
+            return NotFound(new { Message = $"PDF não disponível para o processo {numeroProcesso}." });
+
+        var fileName = string.IsNullOrEmpty(nome) ? $"{numeroProcesso}.pdf" : nome;
+        return File(conteudo, "application/pdf", fileName);
+    }
 }

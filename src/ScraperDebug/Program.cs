@@ -34,6 +34,14 @@ class Program
                 Console.WriteLine($"Data Distribuição: {processo.DataDistribuicao}");
                 Console.WriteLine($"Partes: {processo.Partes.Count}");
                 Console.WriteLine($"Andamentos: {processo.Andamentos.Count}");
+                if (processo.PdfConteudo != null)
+                {
+                    Console.WriteLine($"PDF Baixado: {processo.PdfNome} ({processo.PdfConteudo.Length} bytes)");
+                }
+                else
+                {
+                    Console.WriteLine("Nenhum PDF baixado.");
+                }
             }
             else
             {

@@ -15,6 +15,8 @@ public static class ProcessoMapper
             Assunto = processo.Assunto,
             Foro = processo.Foro,
             DataDistribuicao = processo.DataDistribuicao,
+            PdfDisponivel = processo.PdfConteudo != null && processo.PdfConteudo.Length > 0,
+            PdfNome = processo.PdfNome,
             Partes = processo.Partes.Select(p => new ParteDto
             {
                 Nome = p.Nome,

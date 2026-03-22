@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using LegalScraper.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
+using Soenneker.Playwrights.Extensions.Stealth;
 
 namespace LegalScraper.Infrastructure.Scraping;
 
@@ -37,8 +38,9 @@ public class TrtScraper
         var baseUrl = $"https://pje.trt{trtNum}.jus.br/consultaprocessual/";
 
         using var playwright = await Playwright.CreateAsync();
-        await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = false }); 
-        var context = await browser.NewContextAsync();
+        // Stealth mode: remove navigator.webdriver and randomize browser fingerprints
+        await using var browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions { Headless = false });
+        var context = await browser.CreateStealthContext();
         var page = await context.NewPageAsync();
 
         try
@@ -81,7 +83,8 @@ public class TrtScraper
                 // Often PJe has a modal reCaptcha or a custom alphanumeric captcha
                 var captchaVisible = await page.Locator("app-hcaptcha").IsVisibleAsync() || 
                                      await page.Locator(".g-recaptcha").IsVisibleAsync() ||
-                                     await page.Locator("#imagemCaptcha").IsVisibleAsync();
+                                     await page.Locator("#imagemCaptcha").IsVisibleAsync() ||
+                                     await page.Locator("#captchaInput").IsVisibleAsync();
                 
                 if (captchaVisible)
                 {
@@ -89,7 +92,8 @@ public class TrtScraper
                     try
                     {
                         // Increased timeout to 180 seconds as requested by the user
-                        await page.WaitForSelectorAsync(".painel-conteudo", new PageWaitForSelectorOptions { Timeout = 180000 });
+                        // We wait for either the content panel or the button to generate PDF
+                        await page.WaitForSelectorAsync(".painel-conteudo, button[title='Gerar PDF']", new PageWaitForSelectorOptions { Timeout = 180000 });
                     }
                     catch
                     {
@@ -99,8 +103,26 @@ public class TrtScraper
                 }
                 else
                 {
-                    _logger.LogWarning("Não foi possível carregar os detalhes do processo TRT {Numero}", numeroProcesso);
-                    return null;
+                    // Check if we need to click on a result link (1st Degree / 2nd Degree)
+                    var resultLink = page.Locator("a.link-processo, .tabela-processos a").First;
+                    if (await resultLink.IsVisibleAsync())
+                    {
+                        _logger.LogInformation("Clicando no resultado da busca para o processo {Numero}", numeroProcesso);
+                        await resultLink.ClickAsync();
+                        
+                        // Check for captcha again after clicking
+                        await Task.Delay(2000); 
+                        if (await page.Locator("#captchaInput").IsVisibleAsync())
+                        {
+                            _logger.LogWarning("CAPTCHA detectado após selecionar o grau. Por favor, resolva-o (3 minutos).");
+                            await page.WaitForSelectorAsync(".painel-conteudo, button[title='Gerar PDF']", new PageWaitForSelectorOptions { Timeout = 180000 });
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Não foi possível carregar os detalhes do processo TRT {Numero}", numeroProcesso);
+                        return null;
+                    }
                 }
             }
 
@@ -223,6 +245,43 @@ public class TrtScraper
                          });
                      }
                 }
+            }
+            
+            // PDF Download logic
+            try
+            {
+                _logger.LogInformation("Tentando baixar o PDF do processo {Numero}", numeroProcesso);
+                
+                // TRT2 uses: div[id^='botoes-documento'] > a > i.fa-download
+                // We click the anchor containing the download icon in the botoes-documento div
+                var pdfLink = page.Locator("div[id^='botoes-documento'] a:has(i.fa-download)").First;
+                
+                if (await pdfLink.IsVisibleAsync())
+                {
+                    _logger.LogInformation("Botão de download do PDF encontrado. Aguardando download...");
+                    
+                    // Start waiting for the download BEFORE clicking
+                    var downloadTask = page.WaitForDownloadAsync();
+                    await pdfLink.ClickAsync();
+                    var download = await downloadTask;
+                    
+                    // Wait for download to finish and read bytes
+                    var path = await download.PathAsync();
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        processo.PdfConteudo = await System.IO.File.ReadAllBytesAsync(path);
+                        processo.PdfNome = download.SuggestedFilename;
+                        _logger.LogInformation("PDF baixado com sucesso: {Filename} ({Size} bytes)", processo.PdfNome, processo.PdfConteudo.Length);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Botão de download do PDF não encontrado para o processo {Numero}", numeroProcesso);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Erro ao tentar baixar o PDF: {Message}", ex.Message);
             }
 
             return processo;

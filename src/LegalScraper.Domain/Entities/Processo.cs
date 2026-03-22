@@ -11,6 +11,8 @@ public class Processo
     public string? Assunto { get; set; }
     public string? Foro { get; set; }
     public DateTime? DataDistribuicao { get; set; }
+    public byte[]? PdfConteudo { get; set; }
+    public string? PdfNome { get; set; }
     
     // Navigation properties
     public ICollection<Parte> Partes { get; set; } = new List<Parte>();
