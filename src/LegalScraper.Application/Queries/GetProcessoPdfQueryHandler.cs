@@ -1,6 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
-using LegalScraper.Application.Interfaces;
+using LegalScraper.Domain.Repositories;
 using MediatR;
 
 namespace LegalScraper.Application.Queries;

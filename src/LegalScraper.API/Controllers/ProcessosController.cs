@@ -40,6 +40,7 @@ public class ProcessosController : ControllerBase
     public async Task<ActionResult> Scrape([FromBody] List<string> numerosProcesso)
     {
         var success = await _mediator.Send(new ScrapeProcessosCommand(numerosProcesso));
+        
         if (success)
             return Ok(new { Message = "Scraping finalizado com sucesso para todos os processos." });
         

@@ -1,3 +1,4 @@
+using LegalScraper.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LegalScraper.Application;
@@ -12,4 +13,4 @@ public static class DependencyInjection
 
         return services;
     }
-}
+};

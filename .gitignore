@@ -53,3 +53,5 @@ Thumbs.db
 # Ignore per-project build folders
 src/**/bin/
 src/**/obj/
+
+/src/LegalScraper.API/LegalScraper.db

@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LegalScraper.Domain.Entities;
 
-namespace LegalScraper.Application.Interfaces;
+namespace LegalScraper.Domain.Repositories;
 
 public interface IProcessoRepository
 {

@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using LegalScraper.Domain.Entities;
@@ -26,7 +27,7 @@ public class TjspScraper
         using var playwright = await Playwright.CreateAsync();
         
         // Stealth mode: remove navigator.webdriver and randomize browser fingerprints
-        await using var browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions { Headless = false });
+        await using var browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions { Headless = true });
         var context = await browser.CreateStealthContext();
         var page = await context.NewPageAsync();
 
@@ -53,37 +54,19 @@ public class TjspScraper
                 await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
             }
             
-            // Wait for Captcha or Results
+            // Wait for results
             var processInfoVisible = await page.Locator("#numeroProcesso").IsVisibleAsync();
             if (!processInfoVisible)
             {
-                // Probably a Captcha block or "Processo não encontrado"
-                var captchaVisible = await page.Locator("#captcha_image").IsVisibleAsync() || await page.Locator(".g-recaptcha").IsVisibleAsync();
-                if (captchaVisible)
+                var msgErro = await page.Locator("#mensagemRetorno").IsVisibleAsync();
+                if (msgErro)
                 {
-                    _logger.LogWarning("CAPTCHA detectado no TJSP para processo {Numero}. Por favor, resolva-o no navegador de Chromium aberto (você tem 30 segundos).", numeroProcesso);
-                    
-                    // Estratégia de contorno: Esperar intervenção manual (comum em robôs assistidos)
-                    // Num cenário 100% headless usaríamos serviços como 2Captcha ou AntiCaptcha.
-                    try 
-                    {
-                        await page.WaitForSelectorAsync("#numeroProcesso", new PageWaitForSelectorOptions { Timeout = 30000 });
-                    }
-                    catch (TimeoutException)
-                    {
-                        _logger.LogError("Timeout aguardando a resolução do CAPTCHA.");
-                        return null;
-                    }
+                    _logger.LogWarning("Processo não encontrado ou erro do sistema do TJ");
+                    return null;
                 }
-                else 
-                {
-                    var msgErro = await page.Locator("#mensagemRetorno").IsVisibleAsync();
-                    if (msgErro) 
-                    {
-                        _logger.LogWarning("Processo não encontrado ou erro do sistema do TJ");
-                        return null;
-                    }
-                }
+
+                _logger.LogError("Informações do processo não encontradas no TJSP (possível bloqueio anti-bot).");
+                return null;
             }
 
             var processo = new Processo { Numero = numeroProcesso };
@@ -104,16 +87,28 @@ public class TjspScraper
             var rowsPartes = await page.Locator("#tableTodasPartes .fundoClaro").AllAsync();
             if(!rowsPartes.Any())
                 rowsPartes = await page.Locator("#tablePartesPrincipais .fundoClaro").AllAsync(); // Fallback to main partes
-                
+
             foreach (var row in rowsPartes)
             {
-                var tipo = await row.Locator("td.label").TextContentAsync();
-                var nomeFull = await row.Locator("td.nomeParteEAdvogado").TextContentAsync();
-                if (tipo != null && nomeFull != null)
+                var tipo = await row.Locator("td.label").InnerTextAsync();
+                var nomeFull = await row.Locator("td.nomeParteEAdvogado").InnerTextAsync();
+
+                if (string.IsNullOrWhiteSpace(tipo) && string.IsNullOrWhiteSpace(nomeFull))
                 {
-                    var nome = nomeFull.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)[0].Trim();
-                    processo.Partes.Add(new Parte { TipoParte = tipo.Trim().TrimEnd(':'), Nome = nome, ProcessoId = processo.Id });
+                    _logger.LogDebug("Linha de parte sem tipo e nome encontrado; pulando.");
+                    continue;
                 }
+
+                if (string.IsNullOrWhiteSpace(nomeFull))
+                {
+                    _logger.LogDebug("nomeParteEAdvogado vazio para processo {Numero}", numeroProcesso);
+                    continue;
+                }
+
+                var nome = NormalizeParteName(nomeFull);
+                var tipoClean = tipo?.Trim().TrimEnd(':') ?? string.Empty;
+
+                processo.Partes.Add(new Parte { TipoParte = tipoClean, Nome = nome, ProcessoId = processo.Id });
             }
             
             // Extract Andamentos
@@ -159,5 +154,25 @@ public class TjspScraper
         {
             return null;
         }
+    }
+
+    private static string NormalizeParteName(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        // Replace non-breaking spaces with normal spaces
+        var t = input.Replace('\u00A0', ' ');
+
+        // Normalize line endings and split into meaningful lines
+        t = Regex.Replace(t, "\r\n|\r|\n", "\n");
+        var parts = t.Split('\n').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToArray();
+
+        var first = parts.Length > 0 ? parts[0] : t.Trim();
+
+        // Collapse multiple whitespace into a single space
+        first = Regex.Replace(first, "\\s{2,}", " ");
+
+        return first.Trim();
     }
 }

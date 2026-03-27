@@ -1,6 +1,9 @@
 using LegalScraper.Application.Interfaces;
+using LegalScraper.Domain.Interfaces;
+using LegalScraper.Domain.Repositories;
 using LegalScraper.Infrastructure.Persistence;
 using LegalScraper.Infrastructure.Scraping;
+using LegalScraper.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +18,8 @@ public static class DependencyInjection
             options.UseSqlite(configuration.GetConnectionString("DefaultConnection") ?? "Data Source=LegalScraper.db"));
 
         services.AddScoped<IProcessoRepository, ProcessoRepository>();
+
+        services.AddScoped<IAiExtractionService, GeminiExtractionService>();
         
         // Registering Scraper Service
         services.AddScoped<IScraperService, ScraperService>();

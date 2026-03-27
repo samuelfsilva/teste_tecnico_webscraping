@@ -1,15 +1,28 @@
 using LegalScraper.Application;
 using LegalScraper.Infrastructure;
 using LegalScraper.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Force Kestrel to always listen on port 5256 (HTTP)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5256);
+});
+
 // Add services to the container.
 builder.Services.AddControllers();
+// Add CORS policy to allow frontend during development
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -36,6 +49,8 @@ using (var scope = app.Services.CreateScope())
     dbContext.Database.EnsureCreated();
 }
 
+// Enable CORS for the frontend
+app.UseCors("AllowFrontend");
 app.UseAuthorization();
 app.MapControllers();
 

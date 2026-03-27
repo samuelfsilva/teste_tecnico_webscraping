@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using LegalScraper.Application.Interfaces;
+using LegalScraper.Domain.Repositories;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
