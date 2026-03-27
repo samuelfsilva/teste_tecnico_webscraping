@@ -54,4 +54,4 @@ Thumbs.db
 src/**/bin/
 src/**/obj/
 
-/src/LegalScraper.API/LegalScraper.db
+src/LegalScraper.API/LegalScraper.db
