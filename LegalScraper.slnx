@@ -4,5 +4,6 @@
     <Project Path="src/LegalScraper.Application/LegalScraper.Application.csproj" />
     <Project Path="src/LegalScraper.Domain/LegalScraper.Domain.csproj" />
     <Project Path="src/LegalScraper.Infrastructure/LegalScraper.Infrastructure.csproj" />
+    <Project Path="src/LegalScraper.Tests/LegalScraper.Tests.csproj" />
   </Folder>
 </Solution>
